@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 using System.IO;
 
 [InitializeOnLoad]
-public class UnitySceneBackup : UnityEditor.AssetModificationProcessor
+public class UnitySceneBackup
 {
     const string c_SavePathRoot = "SceneBackup";
     const string c_UnityFileExt = ".unity";
@@ -18,6 +18,7 @@ public class UnitySceneBackup : UnityEditor.AssetModificationProcessor
     static UnitySceneBackup()
     {
         LoadPrefs();
+		EditorSceneManager.sceneSaved += OnSceneSaved;
     }
 
     static void LoadPrefs()
@@ -28,6 +29,32 @@ public class UnitySceneBackup : UnityEditor.AssetModificationProcessor
             m_prefsLoaded = true;
         }
     }
+
+	static void OnSceneSaved( Scene scene )
+	{
+		if ( !m_enabled )
+        {
+			return;
+		}
+
+        string scenePath = GetBackupPath( scene.path );
+
+        if ( !Directory.Exists( scenePath ) )
+        {
+            Directory.CreateDirectory( scenePath );
+        }
+
+        string output_filename = FindNextFilename( scene.path );
+
+		try
+		{
+			File.Copy( scene.path, output_filename, true );
+		}
+		catch ( System.Exception e )
+		{
+			Debug.Log( e.ToString() );
+		}
+	}
 
     static Scene FindSceneByPath( string path )
     {
@@ -71,40 +98,6 @@ public class UnitySceneBackup : UnityEditor.AssetModificationProcessor
         string scenePath = filename.Replace( "Assets", c_SavePathRoot ).Replace( base_filename, string.Empty );
 
         return scenePath;
-    }
-
-	public static string[] OnWillSaveAssets( string[] paths )
-    {
-        if ( m_enabled )
-        { 
-            foreach( string path in paths )
-            {
-                if ( path.Contains( c_UnityFileExt ) )
-                {   
-                    if ( !path.Contains("Assets") )
-                    {
-                        continue;
-                    }
-                       
-                    //create save path
-                    string scenePath = GetBackupPath( path );
-
-                    if ( !Directory.Exists( scenePath ) )
-                    {
-                        Directory.CreateDirectory( scenePath );
-                    }
-
-                    string output_filename = FindNextFilename( path );
-                
-                    Scene scene = FindSceneByPath( path );
-
-                    //save scene
-                    EditorSceneManager.SaveScene( scene, output_filename, true );
-                }
-            }
-        }
-
-        return paths;
     }
 
     [PreferenceItem("Scene Backup")]
